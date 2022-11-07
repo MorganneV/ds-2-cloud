@@ -13,10 +13,7 @@ import javax.annotation.Resource;
 import java.awt.print.Book;
 import java.lang.reflect.Array;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Component
 public class Model {
@@ -30,8 +27,8 @@ public class Model {
     public String unreliableAirline = "https://unreliable-airline.com";
     public List<String> airlines = Arrays.asList(reliableAirline);
 
-    public List<Flight> getFlights(){
-        List<Flight> flights = new ArrayList<>();
+    public Collection<Flight> getFlights(){
+        Collection<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
             flights.addAll(webClientBuilder
                             .baseUrl("https://reliable-airline.com")
@@ -48,7 +45,7 @@ public class Model {
     }
 
     public Flight getFlight(String airline, UUID flightId){
-        List<Flight> flights = getFlights();
+        Collection<Flight> flights = getFlights();
         for (Flight flight: flights) {
             if(flight.getAirline().equals(airline) && flight.getFlightId().equals(flightId)){
                 return flight;

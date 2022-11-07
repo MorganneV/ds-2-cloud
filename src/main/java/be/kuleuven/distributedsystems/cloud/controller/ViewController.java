@@ -38,10 +38,8 @@ public class ViewController {
     }
 
     @GetMapping({"/","/flights"})
-    public ModelAndView getFlights() {
-        ModelAndView modelAndView = new ModelAndView("flights");
-        modelAndView.addObject("flights", this.model.getFlights());
-        return modelAndView;
+    public Collection<Flight> getFlights() {
+        return this.model.getFlights();
     }
 
 //
