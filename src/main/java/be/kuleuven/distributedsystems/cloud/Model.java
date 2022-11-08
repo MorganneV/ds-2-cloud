@@ -50,6 +50,7 @@ public class Model {
         return flights;
     }
 
+    @GetMapping(("/getFlight/{airline}/{flightId}"))
     public Flight getFlight(String airline, UUID flightId){
         Collection<Flight> flights = getFlights();
         for (Flight flight: flights) {
