@@ -16,6 +16,7 @@ import javax.annotation.Resource;
 import java.awt.print.Book;
 import java.lang.reflect.Array;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RequestMapping("/api")
@@ -23,7 +24,7 @@ import java.util.*;
 public class Model {
 
     @Resource(name = "webClientBuilder")
-    WebClient.Builder webClientBuilder;
+    private WebClient.Builder webClientBuilder;
 
     public String API_KEY = "Iw8zeveVyaPNWonPNaU0213uw3g6Ei";
 
@@ -51,20 +52,45 @@ public class Model {
     }
 
     @GetMapping(("/getFlight/{airline}/{flightId}"))
-    public Flight getFlight(String airline, UUID flightId){
-        Collection<Flight> flights = getFlights();
-        for (Flight flight: flights) {
-            if(flight.getAirline().equals(airline) && flight.getFlightId().equals(flightId)){
-                return flight;
-            }
-        }
-        return null;
+    public Flight getFlight(String airline, UUID flightId) {
+        String id = flightId.toString();
+        Flight flight = webClientBuilder
+                .baseUrl("https://" + airline)
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("flights/" + id)
+                        .queryParam("key", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<Flight>() {
+                })
+                .block();
+        return flight;
     }
 
     //TODO
-    public List<LocalDateTime> getFlightTimes(String airline, UUID flightId){
+    @GetMapping(("/getFlightTimes/{airline}/{flightId}"))
+    public Collection<LocalDateTime> getFlightTimes(String airline, UUID flightId){
+        Flight flight = getFlight(airline, flightId);
+        Collection<LocalDateTime> result = new ArrayList<>();
+        String id = flight.getFlightId().toString();
+        var times = webClientBuilder
+                .baseUrl("https://reliable-airline.com")
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder.pathSegment("flights/" + id + "/times/").queryParam("key", API_KEY).build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<CollectionModel<String>>() {})
+                .block();
+        if (times != null) {
+            for (String t : times) {
+                result.add(LocalDateTime.parse(t, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+            }
+            return result;
+        }
         return null;
-    }
+        }
 
     //TODO
     public List<Seat> getAvailableSeats(String airline, UUID flightId, LocalDateTime time){
