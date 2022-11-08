@@ -7,15 +7,19 @@ import be.kuleuven.distributedsystems.cloud.entities.Ticket;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.client.WebClient;
-
+import org.springframework.retry.annotation.Retryable;
 import javax.annotation.Resource;
 import java.awt.print.Book;
 import java.lang.reflect.Array;
 import java.time.LocalDateTime;
 import java.util.*;
 
-@Component
+@RequestMapping("/api")
+@RestController
 public class Model {
 
     @Resource(name = "webClientBuilder")
@@ -27,6 +31,8 @@ public class Model {
     public String unreliableAirline = "https://unreliable-airline.com";
     public List<String> airlines = Arrays.asList(reliableAirline);
 
+    @Retryable
+    @GetMapping("/getFlights")
     public Collection<Flight> getFlights(){
         Collection<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
