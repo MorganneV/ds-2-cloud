@@ -9,10 +9,7 @@ import org.springframework.hateoas.CollectionModel;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.retry.annotation.Retryable;
 import javax.annotation.Resource;
@@ -54,47 +51,47 @@ public class Model {
         return flights;
     }
 
-    @GetMapping(("/getFlight/{airline}/{flightId}"))
-    public Flight getFlight(@PathVariable String airline, @PathVariable UUID flightId){
+    @GetMapping(("/getFlight"))
+    public Flight getFlight(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId){
         Flight flight = webClientBuilder
-                .baseUrl("https://" + airline)
+                .baseUrl("https://reliable-airline.com")
                 .build()
                 .get()
                 .uri(uriBuilder -> uriBuilder
-                        .pathSegment("flights/" + flightId.toString())
+                        .pathSegment("flights")
+                        .pathSegment(flightId.toString())
                         .queryParam("key", API_KEY)
                         .build())
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<Flight>() {})
+                .bodyToMono(Flight.class)
                 .block();
         return flight;
     }
 
     //TODO
-    @GetMapping(("/getFlightTimes/{airline}/{flightId}"))
-    public Collection<LocalDateTime> getFlightTimes(@PathVariable String airline, @PathVariable UUID flightId){
-        Flight flight = getFlight(airline, flightId);
-        Collection<LocalDateTime> result = new ArrayList<>();
-        String id = flight.getFlightId().toString();
-        var times = webClientBuilder
-                .baseUrl("https://reliable-airline.com/")
-                        .build()
-                        .get()
-                        .uri(uriBuilder -> uriBuilder.pathSegment("flights/" + id + "/times/").queryParam("key", API_KEY).build())
-                        .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<CollectionModel<String>>() {})
-                        .block();
-        if (times != null) {
-            for (String t : times) {
-                result.add(LocalDateTime.parse(t, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-            }
-            return result;
-        }
-        return null;
+    @GetMapping(("/getFlightTimes"))
+    public List<LocalDateTime> getFlightTimes(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId){
+        List<LocalDateTime> times = new ArrayList<>();
+        String id = flightId.toString();
+        times.addAll(webClientBuilder
+                .baseUrl("https://reliable-airline.com")
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("flights")
+                        .pathSegment(id)
+                        .pathSegment("times")
+                        .queryParam("key", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<CollectionModel<LocalDateTime>>() {})
+                .block()
+                .getContent());
+        return times;
     }
 
     //TODO
-    @GetMapping("/getAvailableSeats/{airline}/{flightId}/{time}")
+    @GetMapping("/getAvailableSeats")
     public List<Seat> getAvailableSeats(@PathVariable String airline, @PathVariable UUID flightId, @PathVariable LocalDateTime time){
         List<Seat> seats = new ArrayList<>();
         String id = flightId.toString();
@@ -104,7 +101,7 @@ public class Model {
         params.add("available","true");
         params.add("key", API_KEY);
         seats.addAll(webClientBuilder
-                        .baseUrl("https://" + airline)
+                        .baseUrl("https://" + airline )
                         .build()
                         .get()
                         .uri(uriBuilder -> uriBuilder.pathSegment(path).queryParams(params).build())
@@ -116,7 +113,7 @@ public class Model {
     }
 
     //todo
-    @GetMapping("/getSeat/{airline}/{flightId}/{seatId}")
+    @GetMapping("/getSeat")
     public Seat getSeat(@PathVariable String airline, @PathVariable UUID flightId, @PathVariable UUID seatId){
         String path = "flights/" + flightId.toString() + "/seat/" + seatId.toString();
         Seat seat = webClientBuilder
