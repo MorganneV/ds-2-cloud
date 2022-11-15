@@ -36,14 +36,14 @@ public class Model {
         List<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
             flights.addAll(webClientBuilder
-                    .baseUrl(airline)
-                    .build()
-                    .get()
-                    .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
-                    .block()
-                    .getContent());
+                            .baseUrl("https://reliable-airline.com")
+                            .build()
+                            .get()
+                            .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
+                            .retrieve()
+                            .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
+                            .block()
+                            .getContent());
 
         }
         return flights;
@@ -89,41 +89,38 @@ public class Model {
 
     //TODO
     @GetMapping("/getAvailableSeats")
-    public Map<String,List<Seat>> getAvailableSeats(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("time") LocalDateTime time){
+    public Map<String,List<Seat>> getAvailableSeats(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("time") String time){
         List<Seat> seats = new ArrayList<>();
         String id = flightId.toString();
-        String path = "/flights/" + id + "/seats";
-        MultiValueMap<String,String> params = new LinkedMultiValueMap<>();
-        params.add("time", time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-        params.add("available","true");
-        params.add("key", API_KEY);
         seats.addAll(webClientBuilder
-                .baseUrl("https://" + airline )
-                .build()
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .pathSegment("flights")
-                        .pathSegment(id)
-                        .pathSegment("seats")
-                        .queryParams(params).build())
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
-                .block()
-                .getContent());
-        Map<String, List<Seat>> types = new HashMap<String, List<Seat>>();
+                        .baseUrl("https://" + airline )
+                        .build()
+                        .get()
+                        .uri(uriBuilder -> uriBuilder
+                                .pathSegment("flights")
+                                .pathSegment(id)
+                                .pathSegment("seats")
+                                .queryParam("time", time)
+                                .queryParam("available", "true")
+                                .queryParam("key", API_KEY)
+                                .build())
+                        .retrieve()
+                        .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
+                        .block()
+                        .getContent());
+        Map<String, List<Seat>> availableSeats = new HashMap<String, List<Seat>>();
         for (Seat seat: seats) {
-            if (!types.containsKey(seat.getType())){
-                types.put(seat.getType(), new ArrayList<Seat>());
+            if (!availableSeats.containsKey(seat.getType())){
+                availableSeats.put(seat.getType(), new ArrayList<Seat>());
             }
-            types.get(seat.getType()).add(seat);
+            availableSeats.get(seat.getType()).add(seat);
         }
-        return types;
+        return availableSeats;
     }
 
     //todo
     @GetMapping("/getSeat")
     public Seat getSeat(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("seatId") UUID seatId){
-        String path = "flights/" + flightId.toString() + "/seat/" + seatId.toString();
         Seat seat = webClientBuilder
                 .baseUrl("https://" + airline)
                 .build()
@@ -131,7 +128,7 @@ public class Model {
                 .uri(uriBuilder -> uriBuilder
                         .pathSegment("flights")
                         .pathSegment(flightId.toString())
-                        .pathSegment("seat")
+                        .pathSegment("seats")
                         .pathSegment(seatId.toString())
                         .queryParam("key", API_KEY)
                         .build())
@@ -143,7 +140,7 @@ public class Model {
     }
 
     //todo
-    @PostMapping({"/confirmQuotes","/cart"})
+    @PostMapping({"/confirmQuotes"})
     public void confirmQuotes(List<Quote> quotes, String customer) {
         try {
             for (Quote quote :
@@ -235,7 +232,7 @@ public class Model {
     }
 
     //todo
-    @GetMapping({"/getBookings", "/account"})
+    @GetMapping("/getBookings")
     public List<Booking> getBookings(String user){
         List<Booking> bookings = new ArrayList<>();
         for (Booking booking: getReservedBookings()) {
@@ -247,13 +244,13 @@ public class Model {
 
 
     //todo
-    @GetMapping({"/getAllBookings", "/manager"})
+    @GetMapping("/getAllBookings")
     public List<Booking> getAllBookings(){
         return getReservedBookings();
     }
 
     //todo
-    @GetMapping({"/getBestCustomers", "/manager"})
+    @GetMapping("/getBestCustomers")
     public Set<String> getBestCustomers(){
         Map<String, Integer> topCustomers = new HashMap<>();
         for (Booking booking: getReservedBookings()) {
@@ -277,12 +274,5 @@ public class Model {
         }
         return bestCustomer;
     }
-
-//    @GetMapping("/cart")
-//    public List<Quote> viewCart{
-//
-//    }
-
-
 
 }
