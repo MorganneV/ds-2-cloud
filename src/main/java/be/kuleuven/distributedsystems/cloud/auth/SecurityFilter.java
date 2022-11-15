@@ -34,16 +34,12 @@ public class SecurityFilter extends OncePerRequestFilter {
             var jwt = JWT.decode(idToken);
             var email = jwt.getClaim("email").asString();
             User user;
-            System.out.println("test: "+ jwt.getClaim("role"));
             if (jwt.getClaim("role").isMissing()){
                 user = new User(email, "");
-                System.out.println("not manager");
             } else if (jwt.getClaim("role").asString().equals("manager")) {
                 user = new User(email, "manager");
-                System.out.println("manager");
             } else {
                 user = new User(email, "");
-                System.out.println("not manager");
             }
             SecurityContext context = SecurityContextHolder.getContext();
             context.setAuthentication(new FirebaseAuthentication(user));
