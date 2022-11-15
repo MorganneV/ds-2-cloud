@@ -3,6 +3,17 @@ package be.kuleuven.distributedsystems.cloud;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.auth.WebSecurityConfig;
 import be.kuleuven.distributedsystems.cloud.entities.*;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import com.google.api.gax.rpc.TransportChannelProvider;
+import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.TopicAdminClient;
+import com.google.cloud.pubsub.v1.TopicAdminSettings;
+import com.google.pubsub.v1.TopicName;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import org.eclipse.jetty.util.DateCache;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
@@ -15,6 +26,7 @@ import org.springframework.retry.annotation.Retryable;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -38,14 +50,14 @@ public class Model {
         List<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
             flights.addAll(webClientBuilder
-                            .baseUrl("https://reliable-airline.com")
-                            .build()
-                            .get()
-                            .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
-                            .retrieve()
-                            .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
-                            .block()
-                            .getContent());
+                    .baseUrl("https://reliable-airline.com")
+                    .build()
+                    .get()
+                    .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
+                    .block()
+                    .getContent());
 
         }
         return flights;
@@ -94,21 +106,21 @@ public class Model {
         List<Seat> seats = new ArrayList<>();
         String id = flightId.toString();
         seats.addAll(webClientBuilder
-                        .baseUrl("https://" + airline )
-                        .build()
-                        .get()
-                        .uri(uriBuilder -> uriBuilder
-                                .pathSegment("flights")
-                                .pathSegment(id)
-                                .pathSegment("seats")
-                                .queryParam("time", time)
-                                .queryParam("available", "true")
-                                .queryParam("key", API_KEY)
-                                .build())
-                        .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
-                        .block()
-                        .getContent());
+                .baseUrl("https://" + airline )
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("flights")
+                        .pathSegment(id)
+                        .pathSegment("seats")
+                        .queryParam("time", time)
+                        .queryParam("available", "true")
+                        .queryParam("key", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
+                .block()
+                .getContent());
         Map<String, List<Seat>> availableSeats = new HashMap<String, List<Seat>>();
         for (Seat seat: seats) {
             if (!availableSeats.containsKey(seat.getType())){
