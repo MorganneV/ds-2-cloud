@@ -1,5 +1,7 @@
 package be.kuleuven.distributedsystems.cloud;
 
+import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
+import be.kuleuven.distributedsystems.cloud.auth.WebSecurityConfig;
 import be.kuleuven.distributedsystems.cloud.entities.*;
 import org.eclipse.jetty.util.DateCache;
 import org.springframework.core.ParameterizedTypeReference;
@@ -87,7 +89,6 @@ public class Model {
         return times;
     }
 
-    //TODO
     @GetMapping("/getAvailableSeats")
     public Map<String,List<Seat>> getAvailableSeats(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("time") String time){
         List<Seat> seats = new ArrayList<>();
@@ -118,7 +119,7 @@ public class Model {
         return availableSeats;
     }
 
-    //todo
+
     @GetMapping("/getSeat")
     public Seat getSeat(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("seatId") UUID seatId){
         Seat seat = webClientBuilder
@@ -139,17 +140,17 @@ public class Model {
         return seat;
     }
 
-    //todo
+    private WebSecurityConfig webSecurityConfig = new WebSecurityConfig(new SecurityFilter());
+    //fixme
     @PostMapping({"/confirmQuotes"})
-    public void confirmQuotes(List<Quote> quotes, String customer) {
+    public void confirmQuotes(@RequestBody List<Quote> quotes) {
+        String customer = webSecurityConfig.getUser().getEmail();
+        String bookingReference = UUID.randomUUID().toString();
         try {
             for (Quote quote :
                     quotes) {
                 if (!handledQuotes.contains(quote)) {
                     handledQuotes.add(quote);
-                    MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-                    params.add("customer", customer);
-                    params.add("key", API_KEY);
                     webClientBuilder
                             .baseUrl("https://" + quote.getAirline())
                             .build()
@@ -160,7 +161,9 @@ public class Model {
                                     .pathSegment("seats")
                                     .pathSegment(quote.getSeatId().toString())
                                     .pathSegment("ticket")
-                                    .queryParams(params)
+                                    .queryParam("bookingReference", bookingReference)
+                                    .queryParam("customer", customer)
+                                    .queryParam("key", API_KEY)
                                     .build())
                             .body(BodyInserters.fromValue("customer"))
                             .retrieve()
