@@ -36,14 +36,14 @@ public class Model {
         List<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
             flights.addAll(webClientBuilder
-                            .baseUrl(airline)
-                            .build()
-                            .get()
-                            .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
-                            .retrieve()
-                            .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
-                            .block()
-                            .getContent());
+                    .baseUrl(airline)
+                    .build()
+                    .get()
+                    .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
+                    .block()
+                    .getContent());
 
         }
         return flights;
@@ -98,18 +98,18 @@ public class Model {
         params.add("available","true");
         params.add("key", API_KEY);
         seats.addAll(webClientBuilder
-                        .baseUrl("https://" + airline )
-                        .build()
-                        .get()
-                        .uri(uriBuilder -> uriBuilder
-                                .pathSegment("flights")
-                                .pathSegment(id)
-                                .pathSegment("seats")
-                                .queryParams(params).build())
-                        .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
-                        .block()
-                        .getContent());
+                .baseUrl("https://" + airline )
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("flights")
+                        .pathSegment(id)
+                        .pathSegment("seats")
+                        .queryParams(params).build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
+                .block()
+                .getContent());
         Map<String, List<Seat>> types = new HashMap<String, List<Seat>>();
         for (Seat seat: seats) {
             if (!types.containsKey(seat.getType())){
