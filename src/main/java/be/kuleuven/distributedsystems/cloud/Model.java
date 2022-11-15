@@ -177,7 +177,6 @@ public class Model {
             }
             Booking booking = new Booking(UUID.randomUUID(), LocalDateTime.now(), reservedTickets, customer);
             reservedBookings.add(booking);
-
             reservedTickets.clear();
             handledQuotes.clear();
         } catch(IllegalStateException e) {
@@ -236,7 +235,8 @@ public class Model {
 
     //todo
     @GetMapping("/getBookings")
-    public List<Booking> getBookings(String user){
+    public List<Booking> getBookings(){
+        String user = webSecurityConfig.getUser().getEmail();
         List<Booking> bookings = new ArrayList<>();
         for (Booking booking: getReservedBookings()) {
             if (booking.getCustomer().equals(user))
@@ -268,7 +268,7 @@ public class Model {
         for (String customer : topCustomers.keySet()) {
             Integer nbTickets = topCustomers.get(customer);
             if (nbTickets > amount){
-                amount = nbTickets;
+//                amount = nbTickets;
                 bestCustomer.clear();
                 bestCustomer.add(customer);
             } else if (nbTickets.equals(amount)){
