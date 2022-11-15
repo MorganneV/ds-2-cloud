@@ -27,5 +27,7 @@ target
 hs_err_pid*
 replay_pid*
 
+*.pdf
+
 /google-cloud-sdk/
 
