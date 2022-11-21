@@ -3,6 +3,8 @@ package be.kuleuven.distributedsystems.cloud;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.auth.WebSecurityConfig;
 import be.kuleuven.distributedsystems.cloud.entities.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.core.ApiFuture;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
@@ -11,6 +13,8 @@ import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
+import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -30,6 +34,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @RequestMapping("/api")
 @RestController
@@ -50,14 +55,14 @@ public class Model {
         List<Flight> flights = new ArrayList<>();
         for (String airline: airlines) {
             flights.addAll(webClientBuilder
-                            .baseUrl("https://" + airline)
-                            .build()
-                            .get()
-                            .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
-                            .retrieve()
-                            .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
-                            .block()
-                            .getContent());
+                    .baseUrl("https://" + airline)
+                    .build()
+                    .get()
+                    .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
+                    .block()
+                    .getContent());
 
         }
         return flights;
@@ -109,21 +114,21 @@ public class Model {
         List<Seat> seats = new ArrayList<>();
         String id = flightId.toString();
         seats.addAll(webClientBuilder
-                        .baseUrl("https://" + airline )
-                        .build()
-                        .get()
-                        .uri(uriBuilder -> uriBuilder
-                                .pathSegment("flights")
-                                .pathSegment(id)
-                                .pathSegment("seats")
-                                .queryParam("time", time)
-                                .queryParam("available", "true")
-                                .queryParam("key", API_KEY)
-                                .build())
-                        .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
-                        .block()
-                        .getContent());
+                .baseUrl("https://" + airline )
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("flights")
+                        .pathSegment(id)
+                        .pathSegment("seats")
+                        .queryParam("time", time)
+                        .queryParam("available", "true")
+                        .queryParam("key", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
+                .block()
+                .getContent());
         Map<String, List<Seat>> availableSeats = new HashMap<String, List<Seat>>();
         for (Seat seat: seats) {
             if (!availableSeats.containsKey(seat.getType())){
@@ -197,6 +202,29 @@ public class Model {
 
             reservedTickets = new ArrayList<>();
             handledQuotes = new ArrayList<>();
+
+            String hostPort = "localhost:8083";
+            ManagedChannel channel = ManagedChannelBuilder.forTarget(hostPort).usePlaintext().build();
+            try {
+                TransportChannelProvider channelProvider =
+                        FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
+                CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+
+                TopicName topicName = TopicName.of(Application.projectId, Application.topicId);
+                Publisher publisher = Publisher.newBuilder(topicName).setCredentialsProvider(credentialsProvider).setChannelProvider(channelProvider).build();
+                PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8(Base64.getEncoder().encodeToString(
+                        new ObjectMapper().writeValueAsString(quotes).getBytes()))).putAttributes("customer", customer).build();
+
+                ApiFuture<String> future = publisher.publish(pubsubMessage);
+                System.out.println("Message ID: " + future.get());
+                publisher.shutdown();
+                publisher.awaitTermination(1, TimeUnit.MINUTES);
+                channel.shutdown();
+                channel.awaitTermination(1, TimeUnit.MINUTES);
+            } catch (Exception e) {
+                System.out.println(e);
+                e.printStackTrace();
+            }
         } catch(IllegalStateException e) {
             e.printStackTrace();
             for (Ticket ticket: reservedTickets) {

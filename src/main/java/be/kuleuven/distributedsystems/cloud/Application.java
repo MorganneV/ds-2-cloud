@@ -5,9 +5,10 @@ import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
-import com.google.cloud.pubsub.v1.Publisher;
-import com.google.cloud.pubsub.v1.TopicAdminClient;
-import com.google.cloud.pubsub.v1.TopicAdminSettings;
+import com.google.cloud.pubsub.v1.*;
+import com.google.pubsub.v1.ProjectSubscriptionName;
+import com.google.pubsub.v1.PushConfig;
+import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.TopicName;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -26,50 +27,24 @@ import reactor.netty.http.client.HttpClient;
 
 import java.io.IOException;
 import java.util.Objects;
-
+import java.util.concurrent.TimeUnit;
 @EnableHypermediaSupport(type = EnableHypermediaSupport.HypermediaType.HAL)
 @SpringBootApplication
 public class Application {
+
+
+    static String projectId = "demo-distributed-systems-kul";
+    static String subscriptionId = "subscription";
+    static String topicId = "topic";
+    static String pushEndpoint = "http://localhost:8080/api/confirmQuotes";
 
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws IOException {
         System.setProperty("server.port", System.getenv().getOrDefault("PORT", "8080"));
 
+        // Start Spring Boot application
         ApplicationContext context = SpringApplication.run(Application.class, args);
-        String hostPort = "localhost:8083";
-        ManagedChannel channel = ManagedChannelBuilder.forTarget(hostPort).usePlaintext().build();
-        try {
-            TransportChannelProvider channelProvider =
-                    FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
-            CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
-
-            // Set the channel and credentials provider when creating a `TopicAdminClient`.
-            // Similarly, for SubscriptionAdminClient
-            TopicAdminClient topicClient =
-                    TopicAdminClient.create(
-                            TopicAdminSettings.newBuilder()
-                                    .setTransportChannelProvider(channelProvider)
-                                    .setCredentialsProvider(credentialsProvider)
-                                    .build());
-
-            TopicName topicName = TopicName.of("demo-distributed-systems-kul", "topic");
-            // Set the channel and credentials provider when creating a `Publisher`.
-            // Similarly, for Subscriber
-            Publisher publisher =
-                    Publisher.newBuilder(topicName)
-                            .setChannelProvider(channelProvider)
-                            .setCredentialsProvider(credentialsProvider)
-                            .build();
-            System.out.println("done");
-            System.out.println(publisher);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } finally {
-            channel.shutdown();
-        }
-
-        // TODO: (level 2) load this data into Firestore
-        String data = new String(new ClassPathResource("data.json").getInputStream().readAllBytes());
+        createPushSubscription(projectId,subscriptionId,topicId,pushEndpoint);
     }
 
     @Bean
@@ -97,5 +72,44 @@ public class Application {
         DefaultHttpFirewall firewall = new DefaultHttpFirewall();
         firewall.setAllowUrlEncodedSlash(true);
         return firewall;
+    }
+
+    public static void createPushSubscription(String projectId, String subscriptionId, String topicId, String pushEndpoint) throws IOException {
+        String hostPort = "localhost:8083";
+        ManagedChannel channel = ManagedChannelBuilder.forTarget(hostPort).usePlaintext().build();
+        try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(SubscriptionAdminSettings.newBuilder()
+                .setCredentialsProvider(NoCredentialsProvider.create())
+                .setTransportChannelProvider(FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel)))
+                .build())) {
+            TopicName topicName = TopicName.of(projectId, topicId);
+            try {
+                TopicAdminClient topicClient = TopicAdminClient.create(TopicAdminSettings.newBuilder()
+                        .setCredentialsProvider(NoCredentialsProvider.create())
+                        .setTransportChannelProvider(FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel)))
+                        .build());
+                topicClient.createTopic(topicName);
+            } catch (Exception e) {
+            }
+            ;
+            ProjectSubscriptionName subscriptionName =
+                    ProjectSubscriptionName.of(projectId, subscriptionId);
+            PushConfig pushConfig = PushConfig.newBuilder().setPushEndpoint(pushEndpoint).build();
+            System.out.println("Endpoint: " + pushEndpoint);
+
+            // Create a push subscription with default acknowledgement deadline of 10 seconds.
+            // Messages not successfully acknowledged within 10 seconds will get resent by the server.
+            try {
+                Subscription subscription =
+                        subscriptionAdminClient.createSubscription(subscriptionName, topicName, pushConfig, 10);
+                System.out.println("Created push subscription: " + subscription.getName());
+            } catch (Exception e) {
+                System.out.println("Subscription already exists: " + subscriptionAdminClient.getSubscription(subscriptionName).getName());
+            }
+            ;
+            channel.shutdown();
+            channel.awaitTermination(1, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
