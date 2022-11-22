@@ -5,6 +5,7 @@ import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.pubsub.v1.*;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PushConfig;
@@ -28,6 +29,10 @@ import reactor.netty.http.client.HttpClient;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.FirestoreOptions;
+
 @EnableHypermediaSupport(type = EnableHypermediaSupport.HypermediaType.HAL)
 @SpringBootApplication
 public class Application {
@@ -38,6 +43,8 @@ public class Application {
     static String topicId = "topic";
     static String pushEndpoint = "http://localhost:8080/api/confirmQuotes";
 
+    public static Firestore db;
+
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws IOException {
         System.setProperty("server.port", System.getenv().getOrDefault("PORT", "8080"));
@@ -45,6 +52,16 @@ public class Application {
         // Start Spring Boot application
         ApplicationContext context = SpringApplication.run(Application.class, args);
         createPushSubscription(projectId,subscriptionId,topicId,pushEndpoint);
+
+        //set up firestore
+        FirestoreOptions firestoreOptions =
+                FirestoreOptions.getDefaultInstance().toBuilder()
+                        .setProjectId(projectId)
+                        .setCredentials(new FirestoreOptions.EmulatorCredentials())
+                        .setEmulatorHost("localhost:8084")
+                        .build();
+        db = firestoreOptions.getService();
+        System.out.println("db is:" + db.toString());
     }
 
     @Bean

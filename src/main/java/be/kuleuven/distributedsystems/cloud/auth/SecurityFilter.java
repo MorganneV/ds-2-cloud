@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 @Component
 public class SecurityFilter extends OncePerRequestFilter {
@@ -35,11 +36,29 @@ public class SecurityFilter extends OncePerRequestFilter {
             var email = jwt.getClaim("email").asString();
             User user;
             if (jwt.getClaim("role").isMissing()){
-                user = new User(email, "");
+                try {
+                    user = new User(email, "");
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             } else if (jwt.getClaim("role").asString().equals("manager")) {
-                user = new User(email, "manager");
+                try {
+                    user = new User(email, "manager");
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             } else {
-                user = new User(email, "");
+                try {
+                    user = new User(email, "");
+                } catch (ExecutionException e) {
+                    throw new RuntimeException(e);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
             SecurityContext context = SecurityContextHolder.getContext();
             context.setAuthentication(new FirebaseAuthentication(user));

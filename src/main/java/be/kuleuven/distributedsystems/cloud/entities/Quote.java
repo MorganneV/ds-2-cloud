@@ -1,6 +1,13 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
+import be.kuleuven.distributedsystems.cloud.Application;
+import com.google.api.core.ApiFuture;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.WriteResult;
+
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class Quote {
