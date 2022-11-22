@@ -11,18 +11,13 @@ import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
-import com.google.cloud.pubsub.v1.TopicAdminClient;
-import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import org.eclipse.jetty.util.DateCache;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -30,9 +25,7 @@ import org.springframework.retry.annotation.Retryable;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Resource;
-import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -166,6 +159,7 @@ public class Model {
     private WebSecurityConfig webSecurityConfig = new WebSecurityConfig(new SecurityFilter());
 
     @PostMapping({"/confirmQuotes"})
+    @Retryable(maxAttempts = 4)
     public void confirmQuotes(@RequestBody List<Quote> quotes) {
         String customer = webSecurityConfig.getUser().getEmail();
         String bookingReference = UUID.randomUUID().toString();
@@ -193,14 +187,15 @@ public class Model {
                             .onStatus(s -> s.value() == 409, response -> Mono.error(new IllegalStateException()))
                             .bodyToMono(new ParameterizedTypeReference<Ticket>() {
                             })
-                            .retry()
                             .block();
                     Ticket ticket = getTicket(quote.getAirline(), quote.getFlightId(), quote.getSeatId());
                     reservedTickets.add(ticket);
                 }
             }
-            Booking booking = new Booking(UUID.randomUUID(), LocalDateTime.now(), reservedTickets, customer);
-            reservedBookings.add(booking);
+            if (!reservedTickets.isEmpty()){
+                Booking booking = new Booking(UUID.randomUUID(), LocalDateTime.now(), reservedTickets, customer);
+                reservedBookings.add(booking);
+            }
 
             reservedTickets = new ArrayList<>();
             handledQuotes = new ArrayList<>();
