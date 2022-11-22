@@ -48,9 +48,8 @@ public class Model {
 
     public String reliableAirline = "reliable-airline.com";
     public String unreliableAirline = "unreliable-airline.com";
-    public List<String> airlines = Arrays.asList(reliableAirline);
+    public List<String> airlines = Arrays.asList(reliableAirline, unreliableAirline);
 
-    @Retryable
     @GetMapping("/getFlights")
     public List<Flight> getFlights(){
         List<Flight> flights = new ArrayList<>();
@@ -62,6 +61,7 @@ public class Model {
                     .uri(uriBuilder -> uriBuilder.pathSegment("flights").queryParam("key", API_KEY).build())
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<CollectionModel<Flight>>() {})
+                    .retry()
                     .block()
                     .getContent());
 
@@ -69,7 +69,6 @@ public class Model {
         return flights;
     }
 
-    @Retryable
     @GetMapping(("/getFlight"))
     public Flight getFlight(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId){
         Flight flight = webClientBuilder
@@ -83,11 +82,12 @@ public class Model {
                         .build())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Flight>() {})
+                .retry()
                 .block();
         return flight;
     }
 
-    @Retryable
+
     @GetMapping(("/getFlightTimes"))
     public List<LocalDateTime> getFlightTimes(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId){
         List<LocalDateTime> times = new ArrayList<>();
@@ -104,12 +104,12 @@ public class Model {
                         .build())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<CollectionModel<LocalDateTime>>() {})
+                .retry()
                 .block()
                 .getContent());
         return times;
     }
 
-    @Retryable
     @GetMapping("/getAvailableSeats")
     public Map<String,List<Seat>> getAvailableSeats(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("time") String time){
         List<Seat> seats = new ArrayList<>();
@@ -128,6 +128,7 @@ public class Model {
                         .build())
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {})
+                .retry()
                 .block()
                 .getContent());
         Map<String, List<Seat>> availableSeats = new HashMap<String, List<Seat>>();
@@ -141,7 +142,6 @@ public class Model {
     }
 
 
-    @Retryable
     @GetMapping("/getSeat")
     public Seat getSeat(@RequestParam("airline") String airline, @RequestParam("flightId") UUID flightId, @RequestParam("seatId") UUID seatId){
         Seat seat = webClientBuilder
@@ -158,13 +158,13 @@ public class Model {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Seat>() {
                 })
+                .retry()
                 .block();
         return seat;
     }
 
     private WebSecurityConfig webSecurityConfig = new WebSecurityConfig(new SecurityFilter());
 
-    @Retryable(maxAttempts = 4)
     @PostMapping({"/confirmQuotes"})
     public void confirmQuotes(@RequestBody List<Quote> quotes) {
         String customer = webSecurityConfig.getUser().getEmail();
@@ -193,6 +193,7 @@ public class Model {
                             .onStatus(s -> s.value() == 409, response -> Mono.error(new IllegalStateException()))
                             .bodyToMono(new ParameterizedTypeReference<Ticket>() {
                             })
+                            .retry()
                             .block();
                     Ticket ticket = getTicket(quote.getAirline(), quote.getFlightId(), quote.getSeatId());
                     reservedTickets.add(ticket);
@@ -245,6 +246,7 @@ public class Model {
                         .retrieve()
                         .bodyToMono(new ParameterizedTypeReference<Ticket>() {
                         })
+                        .retry()
                         .block();
             }
         } catch (ExecutionException e) {
@@ -263,7 +265,6 @@ public class Model {
     }
 
 
-    @Retryable
     private Ticket getTicket(String airline, UUID flightId, UUID seatId){
         Ticket ticket = webClientBuilder
                 .baseUrl("https://" + airline)
@@ -280,6 +281,7 @@ public class Model {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Ticket>() {
                 })
+                .retry()
                 .block();
         return ticket;
     }
